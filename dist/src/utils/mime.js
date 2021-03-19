@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mimes = exports.getMime = void 0;
-const mimes = {
+var mimes = {
     '3gp': 'video/3gpp',
     a: 'application/octet-stream',
     ai: 'application/postscript',
@@ -171,8 +171,8 @@ const mimes = {
     default: 'text/html',
 };
 exports.mimes = mimes;
-const getMime = (path) => {
-    const i = path.lastIndexOf('.');
+var getMime = function (path) {
+    var i = path.lastIndexOf('.');
     return mimes[path.substr(i + 1).toLowerCase()] || mimes['default'];
 };
 exports.getMime = getMime;
