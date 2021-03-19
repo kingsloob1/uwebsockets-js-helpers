@@ -49,7 +49,7 @@ var mkdirp_1 = __importDefault(require("mkdirp"));
 var lodash_1 = require("lodash");
 var stream_1 = require("stream");
 var os_1 = require("os");
-var node_crypto_1 = require("node:crypto");
+var crypto_1 = require("crypto");
 function writeHeaders(res, headers, other) {
     if (typeof headers === 'string' && typeof other === 'string') {
         res.writeHeader(headers, other.toString());
@@ -127,7 +127,7 @@ function parseData(req, res, options) {
                         },
                     }, opts_1);
                     if (typeof options.namespace !== 'string') {
-                        options.namespace = node_crypto_1.randomBytes(16).toString('hex');
+                        options.namespace = crypto_1.randomBytes(16).toString('hex');
                     }
                     _b.label = 1;
                 case 1:
