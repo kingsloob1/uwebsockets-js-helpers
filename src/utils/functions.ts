@@ -9,7 +9,7 @@ import mkdirp from 'mkdirp';
 import { isObject, merge, set } from 'lodash';
 import { finished, Readable } from 'stream';
 import { tmpdir } from 'os';
-import { randomBytes } from 'node:crypto';
+import { randomBytes } from 'crypto';
 
 function writeHeaders(res: HttpResponse, headers: { [name: string]: string } | string, other?: string): void {
   if (typeof headers === 'string' && typeof other === 'string') {
