@@ -1,8 +1,9 @@
 import { createAsyncIterator, forAwaitEach, isAsyncIterable } from 'iterall';
-import { HttpResponse, HttpRequest, WebSocketBehavior, WebSocket } from 'uWebSockets.js';
+import { HttpResponse, HttpRequest, WebSocketBehavior, WebSocket, us_socket_context_t } from 'uWebSockets.js';
 import { GraphQLSchema, ExecutionArgs, SubscriptionArgs, ExecutionResult } from 'graphql';
 import * as Graphql from 'graphql';
 import { ParsedData, parseData, ParseDataOptions } from './functions';
+import { get, isArray, isObject, isString } from 'lodash';
 
 export type GraphqlOptions<T> = {
   [P in keyof T]: T[P];
@@ -22,10 +23,11 @@ export type GraphqlCallbackData = {
 
 export type GraphqlFxOptions<T> = {
   schema: GraphQLSchema | ((parsedData: ParsedData | GraphqlCallbackData) => GraphQLSchema | Promise<GraphQLSchema>);
+  graphql: typeof Graphql;
   options?: GraphqlOptions<T>;
-  graphql?: typeof Graphql;
   contextValue?: unknown;
   contextFxn?: (parsedData: ParsedData | GraphqlCallbackData) => unknown | Promise<unknown>;
+  handle?: ((parsedData: ParsedData | GraphqlCallbackData) => boolean | Promise<boolean>) | boolean;
 };
 
 export type GraphqlParsedData = ParsedData & Required<Pick<ParsedData, 'method' | 'query' | 'body'>>;
@@ -41,9 +43,9 @@ export async function getGraphqlParams(parsedData: GraphqlParsedData): Promise<G
     operationName = requestQuery.operationName;
 
     if (lowerCaseMethod === 'post') {
-      query = body.query || query;
-      variables = body.variables || variables;
-      operationName = body.operationName || operationName;
+      query = get(body, 'fields.query', query) || query;
+      variables = get(body, 'fields.variables', variables) || variables;
+      operationName = get(body, 'fields.operationName', operationName) || operationName;
     }
   }
 
@@ -74,11 +76,22 @@ export async function generateGraphqlHandler(
 
   const {
     schema,
+    graphql,
     options: graphqlOpts = null,
-    graphql = Graphql,
     contextValue = {},
     contextFxn = undefined,
+    handle = true,
   } = graphqlSettings;
+
+  let process = handle;
+  if (typeof handle === 'function') {
+    process = await handle(parsedData);
+  }
+
+  if (!process) {
+    res.end();
+    return;
+  }
 
   const { query, ...otherGraphqlParams } = await getGraphqlParams(parsedData);
   let graphqlOptions: GraphqlOptions<ExecutionArgs> = {
@@ -95,7 +108,7 @@ export async function generateGraphqlHandler(
   }
 
   let ctx = {};
-  if (typeof contextValue === 'object') {
+  if (typeof contextValue === 'object' && isObject(ctx)) {
     ctx = {
       ...ctx,
       ...contextValue,
@@ -104,7 +117,7 @@ export async function generateGraphqlHandler(
 
   if (typeof contextFxn === 'function') {
     const val = await contextFxn(parsedData);
-    if (typeof val === 'object') {
+    if (typeof val === 'object' && isObject(val)) {
       ctx = {
         ...ctx,
         ...val,
@@ -123,16 +136,35 @@ export type GraphqlWsMessage = {
   id: number;
 };
 
+export type GraphqlWsUpgradeHandlerData = GraphqlParsedData & {
+  req: HttpRequest;
+  res: HttpResponse;
+  context: us_socket_context_t;
+};
+export interface GraphqlWebSocketBehavior extends Omit<WebSocketBehavior, 'upgrade'> {
+  upgrade?: (data: GraphqlWsUpgradeHandlerData) => boolean | Promise<boolean>;
+  open?: (ws: WebSocket) => boolean | Promise<boolean>;
+  message?: (ws: WebSocket, message: ArrayBuffer, isBinary: boolean) => boolean | Promise<boolean>;
+  close?: (ws: WebSocket, code: number, message: ArrayBuffer) => boolean | Promise<boolean>;
+}
+
 export async function generateGraphqlWsHandler(settings: {
   options: GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>;
   uws?: {
-    [P in keyof WebSocketBehavior]: WebSocketBehavior[P];
+    [P in keyof GraphqlWebSocketBehavior]: GraphqlWebSocketBehavior[P];
   };
 }): Promise<WebSocketBehavior> {
   const { options, uws = null } = settings;
-  const { schema, options: graphqlOpts = null, graphql = Graphql, contextValue = {}, contextFxn = undefined } = options;
+  const {
+    schema,
+    options: graphqlOpts = null,
+    graphql = Graphql,
+    contextValue = {},
+    contextFxn = undefined,
+    handle = true,
+  } = options;
 
-  let uwsOptions: WebSocketBehavior = {
+  let uwsOptions: GraphqlWebSocketBehavior = {
     idleTimeout: 24 * 60 * 60,
   };
 
@@ -143,16 +175,97 @@ export async function generateGraphqlWsHandler(settings: {
     };
   }
 
+  const {
+    upgrade: upgradeHandler = () => true,
+    open: openHandler = () => true,
+    message: messageHandler = () => true,
+    close: closeHandler = () => true,
+    ...uwsOpts
+  } = uwsOptions;
+
   const subscribe = graphql.subscribe;
   const execute = graphql.execute;
 
+  const map = new Map<string, GraphqlParsedData>();
   let connectedUsersCount = 0;
   const behavior: WebSocketBehavior = {
+    upgrade: async (res, req, context) => {
+      const check = { isAborted: false };
+      res.onAborted(function () {
+        check.isAborted = true;
+      });
+
+      const parsedData = (await parseData(req, res, {
+        method: true,
+        body: true,
+        query: true,
+        path: true,
+        headers: true,
+      })) as GraphqlParsedData;
+
+      if (check.isAborted) return;
+      let process = handle;
+      if (typeof handle === 'function') {
+        process = await handle(parsedData);
+      }
+
+      if (!process) {
+        res.end();
+        return;
+      }
+
+      if (check.isAborted) return;
+      const data: GraphqlWsUpgradeHandlerData = {
+        ...parsedData,
+        req,
+        res,
+        context,
+      };
+
+      process = await upgradeHandler(data);
+      if (process && !check.isAborted) {
+        let secWebsocketKey = get(parsedData.headers, 'sec-websocket-key');
+        if (isArray(secWebsocketKey)) secWebsocketKey = secWebsocketKey.join(';');
+
+        let secWebsocketProtocol = get(parsedData.headers, 'sec-websocket-protocol');
+        if (isArray(secWebsocketProtocol)) secWebsocketProtocol = secWebsocketProtocol.join(';');
+
+        let secWebsocketExtensions = get(parsedData.headers, 'sec-websocket-extensions');
+        if (isArray(secWebsocketExtensions)) secWebsocketExtensions = secWebsocketExtensions.join(';');
+
+        const ipAddress = Buffer.from(res.getRemoteAddressAsText()).toString('utf8');
+        map.set(ipAddress, parsedData);
+        res.upgrade(
+          {
+            url: get(parsedData, 'path'),
+          },
+          secWebsocketKey as string,
+          secWebsocketProtocol as string,
+          secWebsocketExtensions as string,
+          context,
+        );
+
+        setImmediate(() => map.delete(ipAddress));
+      }
+    },
     open: (ws) => {
       ws.opId = ++connectedUsersCount;
+      const ipAddress = Buffer.from(ws.getRemoteAddressAsText()).toString('utf8');
+      const parsedData = map.has(ipAddress) ? map.get(ipAddress) : undefined;
+      map.delete(ipAddress);
+      ws.parsedData = parsedData;
+      openHandler(ws);
     },
-    message: async (ws, message) => {
-      const { type, payload, id: reqOpId }: GraphqlWsMessage = JSON.parse(Buffer.from(message).toString('utf8'));
+    message: async (ws, message, isBinary) => {
+      const proceed = await messageHandler(ws, message, isBinary);
+      if (!proceed) return;
+
+      const data: GraphqlWsMessage = JSON.parse(Buffer.from(message).toString('utf8'));
+      if (!data.type || !data.payload) return ws.send('null');
+
+      const { type, payload, id: reqOpId } = data;
+
+      if (!isString(payload.query)) return ws.send('null');
       const { query, ...graphqlMainOpts } = payload;
 
       let opId: number = connectedUsersCount;
@@ -201,6 +314,7 @@ export async function generateGraphqlWsHandler(settings: {
       }
 
       graphqlOptions.contextValue = ctx;
+      console.log('graphql options', graphqlOptions);
 
       switch (type) {
         case 'start':
@@ -231,7 +345,10 @@ export async function generateGraphqlWsHandler(settings: {
           break;
       }
     },
-    ...uwsOptions,
+    async close(ws, code, ab) {
+      await closeHandler(ws, code, ab);
+    },
+    ...uwsOpts,
   };
 
   return behavior;

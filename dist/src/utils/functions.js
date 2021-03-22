@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -35,12 +46,25 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __spreadArrays = (this && this.__spreadArrays) || function () {
+    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
+    for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+            r[k] = a[j];
+    return r;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseData = exports.stob = exports.writeHeaders = void 0;
-var parse_headers_1 = __importDefault(require("parse-headers"));
+exports.parseData = exports.stob = exports.writeHeaders = exports.ResDataToStream = void 0;
 var qs_1 = require("qs");
 var fs_1 = require("fs");
 var path_1 = require("path");
@@ -49,7 +73,22 @@ var mkdirp_1 = __importDefault(require("mkdirp"));
 var lodash_1 = require("lodash");
 var stream_1 = require("stream");
 var os_1 = require("os");
-var crypto_1 = require("crypto");
+function ResDataToStream(res) {
+    var options = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        options[_i - 1] = arguments[_i];
+    }
+    var stream = new (stream_1.Readable.bind.apply(stream_1.Readable, __spreadArrays([void 0], options)))();
+    stream._read = function () {
+        res.onData(function (chunk, isLast) {
+            stream.push(Buffer.from(chunk));
+            if (isLast)
+                stream.push(null);
+        });
+    };
+    return stream;
+}
+exports.ResDataToStream = ResDataToStream;
 function writeHeaders(res, headers, other) {
     if (typeof headers === 'string' && typeof other === 'string') {
         res.writeHeader(headers, other.toString());
@@ -61,28 +100,49 @@ function writeHeaders(res, headers, other) {
     }
 }
 exports.writeHeaders = writeHeaders;
-function stob(stream) {
-    return new Promise(function (resolve) {
+function stob(stream, maxSize) {
+    if (maxSize === void 0) { maxSize = 0; }
+    return new Promise(function (resolve, reject) {
+        var hasEnded = false;
         var buffers = [];
-        stream.on('data', buffers.push.bind(buffers));
-        stream.on('end', function () {
-            switch (buffers.length) {
-                case 0:
-                    resolve(Buffer.allocUnsafe(0));
-                    break;
-                case 1:
-                    resolve(buffers[0]);
-                    break;
-                default:
-                    resolve(Buffer.concat(buffers));
+        var length = 0;
+        stream.on('data', function (buffer) {
+            if (buffers && !hasEnded) {
+                buffer = Buffer.from(buffer);
+                buffers.push(buffer);
+                if (maxSize) {
+                    length += Buffer.byteLength(buffer);
+                    if (length > maxSize) {
+                        buffers = null;
+                        hasEnded = true;
+                        stream.destroy();
+                        reject('MAX_SIZE_EXCEEDED');
+                    }
+                }
             }
         });
+        stream.on('end', function () {
+            hasEnded = true;
+            if (buffers) {
+                switch (buffers.length) {
+                    case 0:
+                        resolve(Buffer.allocUnsafe(0));
+                        break;
+                    case 1:
+                        resolve(buffers[0]);
+                        break;
+                    default:
+                        resolve(Buffer.concat(buffers));
+                }
+            }
+        });
+        stream.resume();
     });
 }
 exports.stob = stob;
 function parseData(req, res, options) {
     return __awaiter(this, void 0, void 0, function () {
-        var isAborted, out, headers_1, opts_1, fetchBody, _a, e_1;
+        var isAborted, out, headers_1, opts_1, stream_2, contentType, fetchBody, _a, data, e_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -95,25 +155,40 @@ function parseData(req, res, options) {
                     if (isAborted)
                         return [2 /*return*/, out];
                     if ((typeof options.headers === 'boolean' && options.headers === true) || options.body === true) {
-                        headers_1 = [];
-                        req.forEach(function (key, value) {
-                            headers_1.push(key + ": " + value);
+                        headers_1 = {};
+                        req.forEach(function (k, value) {
+                            var key = k.toLowerCase();
+                            if (!lodash_1.has(headers_1, key)) {
+                                lodash_1.set(headers_1, key, value);
+                            }
+                            else {
+                                var val = lodash_1.get(headers_1, key);
+                                if (lodash_1.isArray(val)) {
+                                    val.push(value);
+                                }
+                                else {
+                                    val = [val];
+                                }
+                                lodash_1.set(headers_1, key, val);
+                            }
                         });
-                        out.headers = parse_headers_1.default(headers_1);
+                        out.headers = headers_1;
                     }
                     if (typeof options.query === 'boolean' && options.query === true) {
-                        out.query = qs_1.parse(req.getQuery());
+                        out.query = qs_1.parse(req.getQuery(), {
+                            parseArrays: false,
+                        });
                     }
                     if (typeof options.method === 'boolean' && options.method === true) {
                         out.method = req.getMethod();
                     }
                     if (typeof options.path === 'boolean' && options.path === true) {
-                        out.path = req.getUrl().split('/', 2)[1];
+                        out.path = req.getUrl();
                     }
-                    if (!(typeof options.body === 'boolean' && options.body === true)) return [3 /*break*/, 4];
+                    if (!(typeof options.body === 'boolean' && options.body === true)) return [3 /*break*/, 7];
                     opts_1 = lodash_1.isObject(options.bodyOptions) ? options.bodyOptions : {};
                     opts_1 = lodash_1.merge({
-                        headers: out.headers,
+                        headers: __assign({ 'content-type': 'application/x-www-form-urlencoded' }, out.headers),
                         highWaterMark: 1024,
                         fileHwm: 1024,
                         defCharset: 'utf8',
@@ -126,28 +201,21 @@ function parseData(req, res, options) {
                             files: 10,
                         },
                     }, opts_1);
-                    if (typeof options.namespace !== 'string') {
-                        options.namespace = crypto_1.randomBytes(16).toString('hex');
-                    }
                     _b.label = 1;
                 case 1:
-                    _b.trys.push([1, 3, , 4]);
+                    _b.trys.push([1, 6, , 7]);
+                    stream_2 = ResDataToStream(res);
+                    contentType = lodash_1.get(out, 'headers.content-type', 'application/x-www-form-urlencoded').trim();
+                    if (!('application/x-www-form-urlencoded' === contentType || contentType.startsWith('multipart/form-data;'))) return [3 /*break*/, 3];
                     fetchBody = function () {
                         return new Promise(function (resolve, reject) {
                             var busb = new busboy_1.default(opts_1);
                             var ret = {};
-                            var stream = new stream_1.Readable();
-                            res.onData(function (ab, isLast) {
-                                stream.push(Buffer.from(ab));
-                                if (isLast) {
-                                    stream.push(null);
-                                }
-                            });
-                            stream.pipe(busb);
-                            stream_1.finished(stream, function (err) {
+                            stream_2.pipe(busb);
+                            stream_1.finished(stream_2, function (err) {
                                 if (err) {
-                                    stream.destroy();
-                                    busb.destroy();
+                                    stream_2.destroy();
+                                    busb.end();
                                     reject(Error('stream-error'));
                                 }
                             });
@@ -155,29 +223,135 @@ function parseData(req, res, options) {
                                 reject(Error('limit'));
                             });
                             busb.on('file', function (fieldname, file, filename, encoding, mimetype) {
-                                var path = path_1.join(os_1.tmpdir(), options.namespace, filename);
-                                mkdirp_1.default(path_1.dirname(path));
-                                var writeStream = fs_1.createWriteStream(path);
-                                file.pipe(writeStream);
-                                stream_1.finished(writeStream, function (err) {
-                                    if (!err) {
-                                        lodash_1.set(ret, "files." + fieldname, {
-                                            file: path,
-                                            name: filename,
-                                            encoding: encoding,
-                                            mimetype: mimetype,
-                                        });
-                                    }
-                                    else {
-                                        writeStream.destroy();
-                                    }
+                                var file_1, file_1_1;
+                                var e_2, _a;
+                                return __awaiter(this, void 0, void 0, function () {
+                                    var tmpDir, folder, save, fileData, hasWritten, path, exists, stats, fd, chunk, e_2_1, _b;
+                                    return __generator(this, function (_c) {
+                                        switch (_c.label) {
+                                            case 0:
+                                                tmpDir = os_1.tmpdir();
+                                                folder = '';
+                                                save = true;
+                                                if (!options.customBodyOptions) return [3 /*break*/, 8];
+                                                fileData = {
+                                                    file: file,
+                                                    filename: filename,
+                                                    fieldname: fieldname,
+                                                    encoding: encoding,
+                                                    mimetype: mimetype,
+                                                };
+                                                if (!options.customBodyOptions.tmpDir) return [3 /*break*/, 2];
+                                                return [4 /*yield*/, options.customBodyOptions.tmpDir(fileData)];
+                                            case 1:
+                                                tmpDir = _c.sent();
+                                                _c.label = 2;
+                                            case 2:
+                                                if (!options.customBodyOptions.folder) return [3 /*break*/, 4];
+                                                return [4 /*yield*/, options.customBodyOptions.folder(fileData)];
+                                            case 3:
+                                                folder = _c.sent();
+                                                _c.label = 4;
+                                            case 4:
+                                                if (!options.customBodyOptions.save) return [3 /*break*/, 6];
+                                                return [4 /*yield*/, options.customBodyOptions.save(fileData)];
+                                            case 5:
+                                                save = _c.sent();
+                                                _c.label = 6;
+                                            case 6:
+                                                if (!options.customBodyOptions.fileNameGenerator) return [3 /*break*/, 8];
+                                                return [4 /*yield*/, options.customBodyOptions.fileNameGenerator(fileData)];
+                                            case 7:
+                                                fieldname = _c.sent();
+                                                _c.label = 8;
+                                            case 8:
+                                                hasWritten = false;
+                                                if (!save) return [3 /*break*/, 24];
+                                                if (options.namespace) {
+                                                    if (folder)
+                                                        folder = options.namespace + "/" + folder;
+                                                    else
+                                                        folder = options.namespace;
+                                                }
+                                                path = '';
+                                                exists = false;
+                                                try {
+                                                    path = path_1.join(tmpDir, folder, filename);
+                                                    stats = fs_1.lstatSync(path);
+                                                    exists = stats.isFile() || stats.isDirectory();
+                                                }
+                                                catch (_d) { }
+                                                _c.label = 9;
+                                            case 9:
+                                                _c.trys.push([9, 23, , 24]);
+                                                if (!!exists) return [3 /*break*/, 22];
+                                                mkdirp_1.default.sync(path_1.dirname(path));
+                                                fd = fs_1.openSync(path, 'w');
+                                                _c.label = 10;
+                                            case 10:
+                                                _c.trys.push([10, 15, 16, 21]);
+                                                file_1 = __asyncValues(file);
+                                                _c.label = 11;
+                                            case 11: return [4 /*yield*/, file_1.next()];
+                                            case 12:
+                                                if (!(file_1_1 = _c.sent(), !file_1_1.done)) return [3 /*break*/, 14];
+                                                chunk = file_1_1.value;
+                                                fs_1.writeSync(fd, Buffer.from(chunk));
+                                                _c.label = 13;
+                                            case 13: return [3 /*break*/, 11];
+                                            case 14: return [3 /*break*/, 21];
+                                            case 15:
+                                                e_2_1 = _c.sent();
+                                                e_2 = { error: e_2_1 };
+                                                return [3 /*break*/, 21];
+                                            case 16:
+                                                _c.trys.push([16, , 19, 20]);
+                                                if (!(file_1_1 && !file_1_1.done && (_a = file_1.return))) return [3 /*break*/, 18];
+                                                return [4 /*yield*/, _a.call(file_1)];
+                                            case 17:
+                                                _c.sent();
+                                                _c.label = 18;
+                                            case 18: return [3 /*break*/, 20];
+                                            case 19:
+                                                if (e_2) throw e_2.error;
+                                                return [7 /*endfinally*/];
+                                            case 20: return [7 /*endfinally*/];
+                                            case 21:
+                                                fs_1.closeSync(fd);
+                                                hasWritten = true;
+                                                lodash_1.set(ret, "files." + fieldname, {
+                                                    file: path,
+                                                    mimetype: mimetype,
+                                                });
+                                                _c.label = 22;
+                                            case 22: return [3 /*break*/, 24];
+                                            case 23:
+                                                _b = _c.sent();
+                                                return [3 /*break*/, 24];
+                                            case 24:
+                                                if (!hasWritten) {
+                                                    file.resume();
+                                                }
+                                                return [2 /*return*/];
+                                        }
+                                    });
                                 });
                             });
                             busb.on('field', function (fieldname, value) {
+                                console.log('found a field', fieldname, value);
                                 lodash_1.set(ret, "fields." + fieldname, value);
                             });
                             busb.on('finish', function () {
                                 resolve(ret);
+                            });
+                            busb.on('partsLimit', function () {
+                                reject(Error('busboy-partslimit-error'));
+                            });
+                            busb.on('fieldsLimit', function () {
+                                reject(Error('busboy-fieldslimit-error'));
+                            });
+                            busb.on('filesLimit', function () {
+                                reject(Error('busboy-fileslimit-error'));
                             });
                             busb.on('error', function () {
                                 reject(Error('busboy-error'));
@@ -188,12 +362,24 @@ function parseData(req, res, options) {
                     return [4 /*yield*/, fetchBody()];
                 case 2:
                     _a.body = _b.sent();
-                    return [3 /*break*/, 4];
+                    return [3 /*break*/, 5];
                 case 3:
+                    if (!(contentType === 'application/json')) return [3 /*break*/, 5];
+                    return [4 /*yield*/, stob(stream_2, parseFloat(lodash_1.get(opts_1, 'limits.fieldSize', 0)) || 0)];
+                case 4:
+                    data = _b.sent();
+                    data = data.toString('utf8');
+                    data = JSON.parse(data);
+                    out.body = {
+                        fields: data,
+                    };
+                    _b.label = 5;
+                case 5: return [3 /*break*/, 7];
+                case 6:
                     e_1 = _b.sent();
-                    console.log(e_1);
-                    return [3 /*break*/, 4];
-                case 4: return [2 /*return*/, out];
+                    console.log('error here', e_1);
+                    return [3 /*break*/, 7];
+                case 7: return [2 /*return*/, out];
             }
         });
     });
