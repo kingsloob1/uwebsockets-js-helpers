@@ -95,11 +95,10 @@ export type ParseDataOptions = {
   method?: boolean;
   bodyOptions?: busboy.BusboyConfig;
   customBodyOptions?: {
-    fileNameGenerator?: (options: FileInfo) => string | Promise<string>;
-    handle?: (options?: FileInfo) => boolean | Promise<boolean>;
-    save?: (options?: FileInfo) => boolean | Promise<boolean>;
-    tmpDir?: (options?: FileInfo) => string | Promise<string>;
-    folder?: (options?: FileInfo) => string | Promise<string>;
+    handle?: ((options?: FileInfo) => boolean | Promise<boolean>) | boolean;
+    tmpDir?: ((options?: FileInfo) => string | Promise<string>) | string;
+    folder?: ((options?: FileInfo) => string | Promise<string>) | string;
+    saveAs?: ((options?: FileInfo) => string | Promise<string>) | string;
   };
 };
 
@@ -213,7 +212,7 @@ export async function parseData(req: HttpRequest, res: HttpResponse, options: Pa
             busb.on('file', async function (fieldname, file, filename, encoding, mimetype) {
               let tmpDir = tmpdir();
               let folder = '';
-              let save = true;
+              let handle = true;
 
               if (options.customBodyOptions) {
                 const fileData: FileInfo = {
@@ -224,15 +223,33 @@ export async function parseData(req: HttpRequest, res: HttpResponse, options: Pa
                   mimetype,
                 };
 
-                if (options.customBodyOptions.tmpDir) tmpDir = await options.customBodyOptions.tmpDir(fileData);
-                if (options.customBodyOptions.folder) folder = await options.customBodyOptions.folder(fileData);
-                if (options.customBodyOptions.save) save = await options.customBodyOptions.save(fileData);
-                if (options.customBodyOptions.fileNameGenerator)
-                  fieldname = await options.customBodyOptions.fileNameGenerator(fileData);
+                if (options.customBodyOptions.tmpDir) {
+                  if (typeof options.customBodyOptions.tmpDir === 'function')
+                    tmpDir = await options.customBodyOptions.tmpDir(fileData);
+                  else tmpDir = options.customBodyOptions.tmpDir;
+                }
+
+                if (options.customBodyOptions.folder) {
+                  if (typeof options.customBodyOptions.folder === 'function')
+                    folder = await options.customBodyOptions.folder(fileData);
+                  else folder = options.customBodyOptions.folder;
+                }
+
+                if (options.customBodyOptions.handle) {
+                  if (typeof options.customBodyOptions.handle === 'function')
+                    handle = await options.customBodyOptions.handle(fileData);
+                  else handle = options.customBodyOptions.handle;
+                }
+
+                if (options.customBodyOptions.saveAs) {
+                  if (typeof options.customBodyOptions.saveAs === 'function')
+                    filename = await options.customBodyOptions.saveAs(fileData);
+                  else filename = options.customBodyOptions.saveAs;
+                }
               }
 
               let hasWritten = false;
-              if (save) {
+              if (handle) {
                 if (options.namespace) {
                   if (folder) folder = `${options.namespace}/${folder}`;
                   else folder = options.namespace;
