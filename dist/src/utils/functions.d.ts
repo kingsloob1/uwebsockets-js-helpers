@@ -23,11 +23,10 @@ export declare type ParseDataOptions = {
     method?: boolean;
     bodyOptions?: busboy.BusboyConfig;
     customBodyOptions?: {
-        fileNameGenerator?: (options: FileInfo) => string | Promise<string>;
-        handle?: (options?: FileInfo) => boolean | Promise<boolean>;
-        save?: (options?: FileInfo) => boolean | Promise<boolean>;
-        tmpDir?: (options?: FileInfo) => string | Promise<string>;
-        folder?: (options?: FileInfo) => string | Promise<string>;
+        handle?: ((options?: FileInfo) => boolean | Promise<boolean>) | boolean;
+        tmpDir?: ((options?: FileInfo) => string | Promise<string>) | string;
+        folder?: ((options?: FileInfo) => string | Promise<string>) | string;
+        saveAs?: ((options?: FileInfo) => string | Promise<string>) | string;
     };
 };
 export declare type BodyType = {

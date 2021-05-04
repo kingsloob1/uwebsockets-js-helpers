@@ -224,14 +224,14 @@ function parseData(req, res, options) {
                                 var file_1, file_1_1;
                                 var e_2, _a;
                                 return __awaiter(this, void 0, void 0, function () {
-                                    var tmpDir, folder, save, fileData, hasWritten, path, exists, stats, fd, chunk, e_2_1, _b;
+                                    var tmpDir, folder, handle, fileData, hasWritten, path, exists, stats, fd, chunk, e_2_1, _b;
                                     return __generator(this, function (_c) {
                                         switch (_c.label) {
                                             case 0:
                                                 tmpDir = os_1.tmpdir();
                                                 folder = '';
-                                                save = true;
-                                                if (!options.customBodyOptions) return [3 /*break*/, 8];
+                                                handle = true;
+                                                if (!options.customBodyOptions) return [3 /*break*/, 12];
                                                 fileData = {
                                                     file: file,
                                                     filename: filename,
@@ -239,32 +239,48 @@ function parseData(req, res, options) {
                                                     encoding: encoding,
                                                     mimetype: mimetype,
                                                 };
-                                                if (!options.customBodyOptions.tmpDir) return [3 /*break*/, 2];
+                                                if (!options.customBodyOptions.tmpDir) return [3 /*break*/, 3];
+                                                if (!(typeof options.customBodyOptions.tmpDir === 'function')) return [3 /*break*/, 2];
                                                 return [4 /*yield*/, options.customBodyOptions.tmpDir(fileData)];
                                             case 1:
                                                 tmpDir = _c.sent();
-                                                _c.label = 2;
+                                                return [3 /*break*/, 3];
                                             case 2:
-                                                if (!options.customBodyOptions.folder) return [3 /*break*/, 4];
-                                                return [4 /*yield*/, options.customBodyOptions.folder(fileData)];
+                                                tmpDir = options.customBodyOptions.tmpDir;
+                                                _c.label = 3;
                                             case 3:
-                                                folder = _c.sent();
-                                                _c.label = 4;
+                                                if (!options.customBodyOptions.folder) return [3 /*break*/, 6];
+                                                if (!(typeof options.customBodyOptions.folder === 'function')) return [3 /*break*/, 5];
+                                                return [4 /*yield*/, options.customBodyOptions.folder(fileData)];
                                             case 4:
-                                                if (!options.customBodyOptions.save) return [3 /*break*/, 6];
-                                                return [4 /*yield*/, options.customBodyOptions.save(fileData)];
+                                                folder = _c.sent();
+                                                return [3 /*break*/, 6];
                                             case 5:
-                                                save = _c.sent();
+                                                folder = options.customBodyOptions.folder;
                                                 _c.label = 6;
                                             case 6:
-                                                if (!options.customBodyOptions.fileNameGenerator) return [3 /*break*/, 8];
-                                                return [4 /*yield*/, options.customBodyOptions.fileNameGenerator(fileData)];
+                                                if (!options.customBodyOptions.handle) return [3 /*break*/, 9];
+                                                if (!(typeof options.customBodyOptions.handle === 'function')) return [3 /*break*/, 8];
+                                                return [4 /*yield*/, options.customBodyOptions.handle(fileData)];
                                             case 7:
-                                                fieldname = _c.sent();
-                                                _c.label = 8;
+                                                handle = _c.sent();
+                                                return [3 /*break*/, 9];
                                             case 8:
+                                                handle = options.customBodyOptions.handle;
+                                                _c.label = 9;
+                                            case 9:
+                                                if (!options.customBodyOptions.saveAs) return [3 /*break*/, 12];
+                                                if (!(typeof options.customBodyOptions.saveAs === 'function')) return [3 /*break*/, 11];
+                                                return [4 /*yield*/, options.customBodyOptions.saveAs(fileData)];
+                                            case 10:
+                                                filename = _c.sent();
+                                                return [3 /*break*/, 12];
+                                            case 11:
+                                                filename = options.customBodyOptions.saveAs;
+                                                _c.label = 12;
+                                            case 12:
                                                 hasWritten = false;
-                                                if (!save) return [3 /*break*/, 24];
+                                                if (!handle) return [3 /*break*/, 28];
                                                 if (options.namespace) {
                                                     if (folder)
                                                         folder = options.namespace + "/" + folder;
@@ -279,54 +295,54 @@ function parseData(req, res, options) {
                                                     exists = stats.isFile() || stats.isDirectory();
                                                 }
                                                 catch (_d) { }
-                                                _c.label = 9;
-                                            case 9:
-                                                _c.trys.push([9, 23, , 24]);
-                                                if (!!exists) return [3 /*break*/, 22];
+                                                _c.label = 13;
+                                            case 13:
+                                                _c.trys.push([13, 27, , 28]);
+                                                if (!!exists) return [3 /*break*/, 26];
                                                 mkdirp_1.default.sync(path_1.dirname(path));
                                                 fd = fs_1.openSync(path, 'w');
-                                                _c.label = 10;
-                                            case 10:
-                                                _c.trys.push([10, 15, 16, 21]);
+                                                _c.label = 14;
+                                            case 14:
+                                                _c.trys.push([14, 19, 20, 25]);
                                                 file_1 = __asyncValues(file);
-                                                _c.label = 11;
-                                            case 11: return [4 /*yield*/, file_1.next()];
-                                            case 12:
-                                                if (!(file_1_1 = _c.sent(), !file_1_1.done)) return [3 /*break*/, 14];
+                                                _c.label = 15;
+                                            case 15: return [4 /*yield*/, file_1.next()];
+                                            case 16:
+                                                if (!(file_1_1 = _c.sent(), !file_1_1.done)) return [3 /*break*/, 18];
                                                 chunk = file_1_1.value;
                                                 fs_1.writeSync(fd, Buffer.from(chunk));
-                                                _c.label = 13;
-                                            case 13: return [3 /*break*/, 11];
-                                            case 14: return [3 /*break*/, 21];
-                                            case 15:
+                                                _c.label = 17;
+                                            case 17: return [3 /*break*/, 15];
+                                            case 18: return [3 /*break*/, 25];
+                                            case 19:
                                                 e_2_1 = _c.sent();
                                                 e_2 = { error: e_2_1 };
-                                                return [3 /*break*/, 21];
-                                            case 16:
-                                                _c.trys.push([16, , 19, 20]);
-                                                if (!(file_1_1 && !file_1_1.done && (_a = file_1.return))) return [3 /*break*/, 18];
+                                                return [3 /*break*/, 25];
+                                            case 20:
+                                                _c.trys.push([20, , 23, 24]);
+                                                if (!(file_1_1 && !file_1_1.done && (_a = file_1.return))) return [3 /*break*/, 22];
                                                 return [4 /*yield*/, _a.call(file_1)];
-                                            case 17:
+                                            case 21:
                                                 _c.sent();
-                                                _c.label = 18;
-                                            case 18: return [3 /*break*/, 20];
-                                            case 19:
+                                                _c.label = 22;
+                                            case 22: return [3 /*break*/, 24];
+                                            case 23:
                                                 if (e_2) throw e_2.error;
                                                 return [7 /*endfinally*/];
-                                            case 20: return [7 /*endfinally*/];
-                                            case 21:
+                                            case 24: return [7 /*endfinally*/];
+                                            case 25:
                                                 fs_1.closeSync(fd);
                                                 hasWritten = true;
                                                 lodash_1.set(ret, "files." + fieldname, {
                                                     file: path,
                                                     mimetype: mimetype,
                                                 });
-                                                _c.label = 22;
-                                            case 22: return [3 /*break*/, 24];
-                                            case 23:
+                                                _c.label = 26;
+                                            case 26: return [3 /*break*/, 28];
+                                            case 27:
                                                 _b = _c.sent();
-                                                return [3 /*break*/, 24];
-                                            case 24:
+                                                return [3 /*break*/, 28];
+                                            case 28:
                                                 if (!hasWritten) {
                                                     file.resume();
                                                 }
