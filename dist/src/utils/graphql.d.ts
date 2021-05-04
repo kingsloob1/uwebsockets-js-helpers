@@ -29,9 +29,9 @@ export declare function generateGraphqlHandler(res: HttpResponse, req: HttpReque
     graphql: GraphqlFxOptions<ExecutionArgs>;
 }): Promise<void>;
 export declare type GraphqlWsMessage = {
-    type: 'start' | 'stop' | 'query';
-    payload: GraphqlParams;
-    id: number;
+    type: 'start' | 'stop' | 'query' | 'connection_init' | 'connection_terminate';
+    payload?: GraphqlParams | null;
+    id?: number;
 };
 export declare type GraphqlWsUpgradeHandlerData = GraphqlParsedData & {
     req: HttpRequest;
@@ -41,11 +41,11 @@ export declare type GraphqlWsUpgradeHandlerData = GraphqlParsedData & {
 export interface GraphqlWebSocketBehavior extends Omit<WebSocketBehavior, 'upgrade'> {
     upgrade?: (data: GraphqlWsUpgradeHandlerData) => boolean | Promise<boolean>;
     open?: (ws: WebSocket) => boolean | Promise<boolean>;
-    message?: (ws: WebSocket, message: ArrayBuffer, isBinary: boolean) => boolean | Promise<boolean>;
+    message?: (ws: WebSocket, message: ArrayBuffer, isBinary: boolean) => boolean | Promise<boolean> | Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>> | Promise<Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>>>;
     close?: (ws: WebSocket, code: number, message: ArrayBuffer) => boolean | Promise<boolean>;
 }
 export declare function generateGraphqlWsHandler(settings: {
-    options: GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>;
+    options?: Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>>;
     uws?: {
         [P in keyof GraphqlWebSocketBehavior]: GraphqlWebSocketBehavior[P];
     };

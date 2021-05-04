@@ -3,7 +3,7 @@ import { HttpResponse, HttpRequest, WebSocketBehavior, WebSocket, us_socket_cont
 import { GraphQLSchema, ExecutionArgs, SubscriptionArgs, ExecutionResult } from 'graphql';
 import * as Graphql from 'graphql';
 import { ParsedData, parseData, ParseDataOptions } from './functions';
-import { get, isArray, isObject, isString } from 'lodash';
+import { get, isArray, isObject, isString, has } from 'lodash';
 
 export type GraphqlOptions<T> = {
   [P in keyof T]: T[P];
@@ -126,14 +126,15 @@ export async function generateGraphqlHandler(
   }
 
   graphqlOptions.contextValue = ctx;
+
   res.writeHeader('content-type', 'application/json');
   res.end(JSON.stringify(await graphql.execute(graphqlOptions)));
 }
 
 export type GraphqlWsMessage = {
-  type: 'start' | 'stop' | 'query';
-  payload: GraphqlParams;
-  id: number;
+  type: 'start' | 'stop' | 'query' | 'connection_init' | 'connection_terminate';
+  payload?: GraphqlParams | null;
+  id?: number;
 };
 
 export type GraphqlWsUpgradeHandlerData = GraphqlParsedData & {
@@ -144,25 +145,36 @@ export type GraphqlWsUpgradeHandlerData = GraphqlParsedData & {
 export interface GraphqlWebSocketBehavior extends Omit<WebSocketBehavior, 'upgrade'> {
   upgrade?: (data: GraphqlWsUpgradeHandlerData) => boolean | Promise<boolean>;
   open?: (ws: WebSocket) => boolean | Promise<boolean>;
-  message?: (ws: WebSocket, message: ArrayBuffer, isBinary: boolean) => boolean | Promise<boolean>;
+  message?: (
+    ws: WebSocket,
+    message: ArrayBuffer,
+    isBinary: boolean,
+  ) =>
+    | boolean
+    | Promise<boolean>
+    | Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>>
+    | Promise<Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>>>;
   close?: (ws: WebSocket, code: number, message: ArrayBuffer) => boolean | Promise<boolean>;
 }
 
 export async function generateGraphqlWsHandler(settings: {
-  options: GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>;
+  options?: Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>>;
   uws?: {
     [P in keyof GraphqlWebSocketBehavior]: GraphqlWebSocketBehavior[P];
   };
 }): Promise<WebSocketBehavior> {
-  const { options, uws = null } = settings;
-  const {
-    schema,
-    options: graphqlOpts = null,
-    graphql = Graphql,
-    contextValue = {},
-    contextFxn = undefined,
-    handle = true,
-  } = options;
+  const { options = null, uws = null } = settings;
+
+  let Options: Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>> = {
+    handle: true,
+  };
+
+  if (options) {
+    Options = {
+      ...Options,
+      ...options,
+    };
+  }
 
   let uwsOptions: GraphqlWebSocketBehavior = {
     idleTimeout: 24 * 60 * 60,
@@ -183,9 +195,6 @@ export async function generateGraphqlWsHandler(settings: {
     ...uwsOpts
   } = uwsOptions;
 
-  const subscribe = graphql.subscribe;
-  const execute = graphql.execute;
-
   const map = new Map<string, GraphqlParsedData>();
   let connectedUsersCount = 0;
   const behavior: WebSocketBehavior = {
@@ -204,9 +213,9 @@ export async function generateGraphqlWsHandler(settings: {
       })) as GraphqlParsedData;
 
       if (check.isAborted) return;
-      let process = handle;
-      if (typeof handle === 'function') {
-        process = await handle(parsedData);
+      let process = true;
+      if (typeof Options.handle === 'function') {
+        process = await Options.handle(parsedData);
       }
 
       if (!process) {
@@ -257,68 +266,103 @@ export async function generateGraphqlWsHandler(settings: {
       openHandler(ws);
     },
     message: async (ws, message, isBinary) => {
-      const proceed = await messageHandler(ws, message, isBinary);
+      let proceed = await messageHandler(ws, message, isBinary);
+      let options: Partial<GraphqlFxOptions<ExecutionArgs | SubscriptionArgs>> = {
+        ...Options,
+      };
+
+      if (typeof proceed !== 'boolean') {
+        options = {
+          ...options,
+          ...proceed,
+        };
+      } else {
+        if (!proceed) return;
+      }
+
+      const {
+        schema = null,
+        options: graphqlOpts = null,
+        graphql = null,
+        contextValue = {},
+        contextFxn = undefined,
+        handle = true,
+      } = options;
+
+      if (schema === null) throw new Error('INVALID_EXECUTABLE_SCHEMA');
+      if (graphql === null) throw new Error('INVALID_GRAPHQL_IMPLEMENTATION');
+      if (typeof handle === 'function') {
+        proceed = await handle({
+          ws,
+        });
+      } else {
+        proceed = handle;
+      }
+
       if (!proceed) return;
+      const subscribe = graphql.subscribe;
+      const execute = graphql.execute;
 
       const data: GraphqlWsMessage = JSON.parse(Buffer.from(message).toString('utf8'));
-      if (!data.type || !data.payload) return ws.send('null');
+      if (!(data && has(data, 'type') && isString(data.type) && has(data, 'payload'))) return;
 
-      const { type, payload, id: reqOpId } = data;
-
-      if (!isString(payload.query)) return ws.send('null');
-      const { query, ...graphqlMainOpts } = payload;
+      const { type, payload, id: reqOpId = null } = data;
 
       let opId: number = connectedUsersCount;
       if (reqOpId) {
         opId = reqOpId;
       }
 
-      let graphqlOptions: GraphqlOptions<SubscriptionArgs> = {
-        schema:
-          typeof schema === 'function'
-            ? await schema({
-                ws,
-              })
-            : schema,
-        document: graphql.parse(query),
-        ...graphqlOpts,
-        ...graphqlMainOpts,
-      };
+      if (type === 'stop' || type === 'connection_terminate') {
+        ws.close();
+        if (connectedUsersCount > 0) connectedUsersCount--;
+      } else {
+        if (!(isObject(payload) && isString(payload.query))) return;
+        const { query, ...graphqlMainOpts } = payload;
 
-      if (graphqlOpts) {
-        graphqlOptions = {
+        let graphqlOptions: GraphqlOptions<SubscriptionArgs> = {
+          schema:
+            typeof schema === 'function'
+              ? await schema({
+                  ws,
+                })
+              : schema,
+          document: graphql.parse(query),
           ...graphqlOpts,
-          ...graphqlOptions,
+          ...graphqlMainOpts,
         };
-      }
 
-      let ctx = {};
-      if (typeof contextValue === 'object') {
-        ctx = {
-          ...ctx,
-          ...contextValue,
-        };
-      }
-
-      if (typeof contextFxn === 'function') {
-        const val = await contextFxn({
-          ws,
-        });
-
-        if (typeof val === 'object') {
-          ctx = {
-            ...ctx,
-            ...val,
+        if (graphqlOpts) {
+          graphqlOptions = {
+            ...graphqlOpts,
+            ...graphqlOptions,
           };
         }
-      }
 
-      graphqlOptions.contextValue = ctx;
-      console.log('graphql options', graphqlOptions);
+        let ctx = {};
+        if (typeof contextValue === 'object') {
+          ctx = {
+            ...ctx,
+            ...contextValue,
+          };
+        }
 
-      switch (type) {
-        case 'start':
-          // eslint-disable-next-line no-case-declarations
+        if (typeof contextFxn === 'function') {
+          const val = await contextFxn({
+            ws,
+          });
+
+          if (typeof val === 'object') {
+            ctx = {
+              ...ctx,
+              ...val,
+            };
+          }
+        }
+
+        graphqlOptions.contextValue = ctx;
+
+        if (type === 'start' || type === 'connection_init') {
           let asyncIterable = await subscribe(graphqlOptions);
           asyncIterable = (isAsyncIterable(asyncIterable)
             ? asyncIterable
@@ -333,16 +377,9 @@ export async function generateGraphqlWsHandler(settings: {
               }),
             ),
           );
-          break;
-
-        case 'stop':
-          ws.close();
-          connectedUsersCount--;
-          break;
-
-        default:
+        } else {
           ws.send(JSON.stringify({ payload: await execute(graphqlOptions), type: 'query', id: opId }));
-          break;
+        }
       }
     },
     async close(ws, code, ab) {

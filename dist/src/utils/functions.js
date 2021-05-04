@@ -53,12 +53,10 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
-var __spreadArrays = (this && this.__spreadArrays) || function () {
-    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
-    for (var r = Array(s), k = 0, i = 0; i < il; i++)
-        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
-            r[k] = a[j];
-    return r;
+var __spreadArray = (this && this.__spreadArray) || function (to, from) {
+    for (var i = 0, il = from.length, j = to.length; i < il; i++, j++)
+        to[j] = from[i];
+    return to;
 };
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -78,7 +76,7 @@ function ResDataToStream(res) {
     for (var _i = 1; _i < arguments.length; _i++) {
         options[_i - 1] = arguments[_i];
     }
-    var stream = new (stream_1.Readable.bind.apply(stream_1.Readable, __spreadArrays([void 0], options)))();
+    var stream = new (stream_1.Readable.bind.apply(stream_1.Readable, __spreadArray([void 0], options)))();
     stream._read = function () {
         res.onData(function (chunk, isLast) {
             stream.push(Buffer.from(chunk));
@@ -338,7 +336,6 @@ function parseData(req, res, options) {
                                 });
                             });
                             busb.on('field', function (fieldname, value) {
-                                console.log('found a field', fieldname, value);
                                 lodash_1.set(ret, "fields." + fieldname, value);
                             });
                             busb.on('finish', function () {

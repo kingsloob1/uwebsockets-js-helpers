@@ -271,7 +271,6 @@ export async function parseData(req: HttpRequest, res: HttpResponse, options: Pa
             });
 
             busb.on('field', function (fieldname, value) {
-              console.log('found a field', fieldname, value);
               set(ret, `fields.${fieldname}`, value);
             });
 
