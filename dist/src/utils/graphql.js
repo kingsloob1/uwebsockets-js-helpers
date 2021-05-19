@@ -340,9 +340,7 @@ function generateGraphqlWsHandler(settings) {
                                 return [4 /*yield*/, subscribe(graphqlOptions)];
                             case 11:
                                 asyncIterable = _r.sent();
-                                asyncIterable = (iterall_1.isAsyncIterable(asyncIterable)
-                                    ? asyncIterable
-                                    : iterall_1.createAsyncIterator([asyncIterable]));
+                                asyncIterable = (iterall_1.isAsyncIterable(asyncIterable) ? asyncIterable : iterall_1.createAsyncIterator([asyncIterable]));
                                 iterall_1.forAwaitEach(asyncIterable, function (result) {
                                     return ws.send(JSON.stringify({
                                         id: opId,

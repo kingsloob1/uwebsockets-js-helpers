@@ -28,7 +28,7 @@ export type GraphqlFxOptions<T> = {
   contextValue?: unknown;
   contextFxn?: (parsedData: ParsedData | GraphqlCallbackData) => unknown | Promise<unknown>;
   handle?: ((parsedData: ParsedData | GraphqlCallbackData) => boolean | Promise<boolean>) | boolean;
-  rejected: (reason: string) => Promise<void> | void;
+  rejected?: (reason: string) => Promise<void> | void;
 };
 
 export type GraphqlParsedData = ParsedData & Required<Pick<ParsedData, 'method' | 'query' | 'body'>>;
@@ -373,9 +373,9 @@ export async function generateGraphqlWsHandler(settings: {
 
         if (type === 'start' || type === 'connection_init') {
           let asyncIterable = await subscribe(graphqlOptions);
-          asyncIterable = (isAsyncIterable(asyncIterable)
-            ? asyncIterable
-            : createAsyncIterator([asyncIterable])) as AsyncIterableIterator<ExecutionResult>;
+          asyncIterable = (
+            isAsyncIterable(asyncIterable) ? asyncIterable : createAsyncIterator([asyncIterable])
+          ) as AsyncIterableIterator<ExecutionResult>;
 
           forAwaitEach(asyncIterable, (result) =>
             ws.send(
