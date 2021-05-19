@@ -29,6 +29,7 @@ export type GraphqlFxOptions<T> = {
   contextFxn?: (parsedData: ParsedData | GraphqlCallbackData) => unknown | Promise<unknown>;
   handle?: ((parsedData: ParsedData | GraphqlCallbackData) => boolean | Promise<boolean>) | boolean;
   rejected?: (reason: string) => Promise<void> | void;
+  formatError?: (err: unknown) => Promise<unknown> | unknown;
 };
 
 export type GraphqlParsedData = ParsedData & Required<Pick<ParsedData, 'method' | 'query' | 'body'>>;
@@ -57,6 +58,25 @@ export async function getGraphqlParams(parsedData: GraphqlParsedData): Promise<G
   } as GraphqlParams;
 }
 
+const prepareExecutionResult = async function (
+  result: ExecutionResult,
+  formatError: (err: unknown) => unknown = (err) => err,
+) {
+  const { errors, ...other } = result;
+  const out: Omit<ExecutionResult, 'errors'> & {
+    errors?: unknown[];
+  } = other;
+
+  if (errors) {
+    out.errors = errors.map((error) => {
+      const err = error.originalError ? error.originalError : error;
+      return formatError(err);
+    });
+  }
+
+  return out;
+};
+
 export async function generateGraphqlHandler(
   res: HttpResponse,
   req: HttpRequest,
@@ -83,6 +103,7 @@ export async function generateGraphqlHandler(
     contextFxn = undefined,
     handle = true,
     rejected = () => res.end(),
+    formatError,
   } = graphqlSettings;
 
   let process = handle;
@@ -129,8 +150,9 @@ export async function generateGraphqlHandler(
 
   graphqlOptions.contextValue = ctx;
 
+  const result = await prepareExecutionResult(await graphql.execute(graphqlOptions), formatError);
   res.writeHeader('content-type', 'application/json');
-  res.end(JSON.stringify(await graphql.execute(graphqlOptions)));
+  res.end(JSON.stringify(result));
 }
 
 export type GraphqlWsMessage = {
@@ -292,6 +314,7 @@ export async function generateGraphqlWsHandler(settings: {
         contextFxn = undefined,
         handle = true,
         rejected = () => null,
+        formatError,
       } = options;
 
       if (schema === null) throw new Error('INVALID_EXECUTABLE_SCHEMA');
@@ -377,17 +400,19 @@ export async function generateGraphqlWsHandler(settings: {
             isAsyncIterable(asyncIterable) ? asyncIterable : createAsyncIterator([asyncIterable])
           ) as AsyncIterableIterator<ExecutionResult>;
 
-          forAwaitEach(asyncIterable, (result) =>
+          forAwaitEach(asyncIterable, (result) => {
+            const res = prepareExecutionResult(result, formatError);
             ws.send(
               JSON.stringify({
                 id: opId,
                 type: 'data',
-                payload: result,
+                payload: res,
               }),
-            ),
-          );
+            );
+          });
         } else {
-          ws.send(JSON.stringify({ payload: await execute(graphqlOptions), type: 'query', id: opId }));
+          const res = prepareExecutionResult(await execute(graphqlOptions), formatError);
+          ws.send(JSON.stringify({ payload: res, type: 'query', id: opId }));
         }
       }
     },

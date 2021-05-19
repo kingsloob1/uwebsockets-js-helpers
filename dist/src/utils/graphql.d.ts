@@ -23,6 +23,7 @@ export declare type GraphqlFxOptions<T> = {
     contextFxn?: (parsedData: ParsedData | GraphqlCallbackData) => unknown | Promise<unknown>;
     handle?: ((parsedData: ParsedData | GraphqlCallbackData) => boolean | Promise<boolean>) | boolean;
     rejected?: (reason: string) => Promise<void> | void;
+    formatError?: (err: unknown) => Promise<unknown> | unknown;
 };
 export declare type GraphqlParsedData = ParsedData & Required<Pick<ParsedData, 'method' | 'query' | 'body'>>;
 export declare function getGraphqlParams(parsedData: GraphqlParsedData): Promise<GraphqlParams>;
