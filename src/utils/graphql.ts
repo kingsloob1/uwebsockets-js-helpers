@@ -28,6 +28,7 @@ export type GraphqlFxOptions<T> = {
   contextValue?: unknown;
   contextFxn?: (parsedData: ParsedData | GraphqlCallbackData) => unknown | Promise<unknown>;
   handle?: ((parsedData: ParsedData | GraphqlCallbackData) => boolean | Promise<boolean>) | boolean;
+  rejected: (reason: string) => Promise<void> | void;
 };
 
 export type GraphqlParsedData = ParsedData & Required<Pick<ParsedData, 'method' | 'query' | 'body'>>;
@@ -81,6 +82,7 @@ export async function generateGraphqlHandler(
     contextValue = {},
     contextFxn = undefined,
     handle = true,
+    rejected = () => res.end(),
   } = graphqlSettings;
 
   let process = handle;
@@ -89,7 +91,7 @@ export async function generateGraphqlHandler(
   }
 
   if (!process) {
-    res.end();
+    rejected('HANDLE');
     return;
   }
 
@@ -219,7 +221,9 @@ export async function generateGraphqlWsHandler(settings: {
       }
 
       if (!process) {
-        res.end();
+        if (Options.rejected) {
+          Options.rejected('HANDLE');
+        } else res.end();
         return;
       }
 
@@ -287,6 +291,7 @@ export async function generateGraphqlWsHandler(settings: {
         contextValue = {},
         contextFxn = undefined,
         handle = true,
+        rejected = () => null,
       } = options;
 
       if (schema === null) throw new Error('INVALID_EXECUTABLE_SCHEMA');
@@ -299,7 +304,11 @@ export async function generateGraphqlWsHandler(settings: {
         proceed = handle;
       }
 
-      if (!proceed) return;
+      if (!proceed) {
+        rejected('HANDLE');
+        return;
+      }
+
       const subscribe = graphql.subscribe;
       const execute = graphql.execute;
 

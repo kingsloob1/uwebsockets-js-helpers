@@ -89,10 +89,10 @@ function getGraphqlParams(parsedData) {
 exports.getGraphqlParams = getGraphqlParams;
 function generateGraphqlHandler(res, req, settings) {
     return __awaiter(this, void 0, void 0, function () {
-        var graphqlSettings, options, parsedData, schema, graphql, _a, graphqlOpts, _b, contextValue, _c, contextFxn, _d, handle, process, _e, query, otherGraphqlParams, graphqlOptions, _f, ctx, val, _g, _h, _j, _k;
-        var _l;
-        return __generator(this, function (_m) {
-            switch (_m.label) {
+        var graphqlSettings, options, parsedData, schema, graphql, _a, graphqlOpts, _b, contextValue, _c, contextFxn, _d, handle, _e, rejected, process, _f, query, otherGraphqlParams, graphqlOptions, _g, ctx, val, _h, _j, _k, _l;
+        var _m;
+        return __generator(this, function (_o) {
+            switch (_o.label) {
                 case 0:
                     res.onAborted(console.error);
                     graphqlSettings = settings.graphql, options = __rest(settings, ["graphql"]);
@@ -102,33 +102,33 @@ function generateGraphqlHandler(res, req, settings) {
                             query: true,
                         }))];
                 case 1:
-                    parsedData = (_m.sent());
-                    schema = graphqlSettings.schema, graphql = graphqlSettings.graphql, _a = graphqlSettings.options, graphqlOpts = _a === void 0 ? null : _a, _b = graphqlSettings.contextValue, contextValue = _b === void 0 ? {} : _b, _c = graphqlSettings.contextFxn, contextFxn = _c === void 0 ? undefined : _c, _d = graphqlSettings.handle, handle = _d === void 0 ? true : _d;
+                    parsedData = (_o.sent());
+                    schema = graphqlSettings.schema, graphql = graphqlSettings.graphql, _a = graphqlSettings.options, graphqlOpts = _a === void 0 ? null : _a, _b = graphqlSettings.contextValue, contextValue = _b === void 0 ? {} : _b, _c = graphqlSettings.contextFxn, contextFxn = _c === void 0 ? undefined : _c, _d = graphqlSettings.handle, handle = _d === void 0 ? true : _d, _e = graphqlSettings.rejected, rejected = _e === void 0 ? function () { return res.end(); } : _e;
                     process = handle;
                     if (!(typeof handle === 'function')) return [3 /*break*/, 3];
                     return [4 /*yield*/, handle(parsedData)];
                 case 2:
-                    process = _m.sent();
-                    _m.label = 3;
+                    process = _o.sent();
+                    _o.label = 3;
                 case 3:
                     if (!process) {
-                        res.end();
+                        rejected('HANDLE');
                         return [2 /*return*/];
                     }
                     return [4 /*yield*/, getGraphqlParams(parsedData)];
                 case 4:
-                    _e = _m.sent(), query = _e.query, otherGraphqlParams = __rest(_e, ["query"]);
-                    _l = {};
+                    _f = _o.sent(), query = _f.query, otherGraphqlParams = __rest(_f, ["query"]);
+                    _m = {};
                     if (!(typeof schema === 'function')) return [3 /*break*/, 6];
                     return [4 /*yield*/, schema(parsedData)];
                 case 5:
-                    _f = _m.sent();
+                    _g = _o.sent();
                     return [3 /*break*/, 7];
                 case 6:
-                    _f = schema;
-                    _m.label = 7;
+                    _g = schema;
+                    _o.label = 7;
                 case 7:
-                    graphqlOptions = __assign.apply(void 0, [(_l.schema = _f, _l.document = graphql.parse(query), _l), otherGraphqlParams]);
+                    graphqlOptions = __assign.apply(void 0, [(_m.schema = _g, _m.document = graphql.parse(query), _m), otherGraphqlParams]);
                     if (graphqlOpts) {
                         graphqlOptions = __assign(__assign({}, graphqlOpts), graphqlOptions);
                     }
@@ -139,19 +139,19 @@ function generateGraphqlHandler(res, req, settings) {
                     if (!(typeof contextFxn === 'function')) return [3 /*break*/, 9];
                     return [4 /*yield*/, contextFxn(parsedData)];
                 case 8:
-                    val = _m.sent();
+                    val = _o.sent();
                     if (typeof val === 'object' && lodash_1.isObject(val)) {
                         ctx = __assign(__assign({}, ctx), val);
                     }
-                    _m.label = 9;
+                    _o.label = 9;
                 case 9:
                     graphqlOptions.contextValue = ctx;
                     res.writeHeader('content-type', 'application/json');
-                    _h = (_g = res).end;
-                    _k = (_j = JSON).stringify;
+                    _j = (_h = res).end;
+                    _l = (_k = JSON).stringify;
                     return [4 /*yield*/, graphql.execute(graphqlOptions)];
                 case 10:
-                    _h.apply(_g, [_k.apply(_j, [_m.sent()])]);
+                    _j.apply(_h, [_l.apply(_k, [_o.sent()])]);
                     return [2 /*return*/];
             }
         });
@@ -207,7 +207,11 @@ function generateGraphqlWsHandler(settings) {
                                 _a.label = 3;
                             case 3:
                                 if (!process) {
-                                    res.end();
+                                    if (Options.rejected) {
+                                        Options.rejected('HANDLE');
+                                    }
+                                    else
+                                        res.end();
                                     return [2 /*return*/];
                                 }
                                 if (check.isAborted)
@@ -246,13 +250,13 @@ function generateGraphqlWsHandler(settings) {
                     ws.parsedData = parsedData;
                     openHandler(ws);
                 }, message: function (ws, message, isBinary) { return __awaiter(_this, void 0, void 0, function () {
-                    var proceed, options, _a, schema, _b, graphqlOpts, _c, graphql, _d, contextValue, _e, contextFxn, _f, handle, subscribe, execute, data, type, payload, _g, reqOpId, opId, query, graphqlMainOpts, graphqlOptions, _h, ctx, val, asyncIterable, _j, _k, _l, _m;
-                    var _o, _p;
-                    return __generator(this, function (_q) {
-                        switch (_q.label) {
+                    var proceed, options, _a, schema, _b, graphqlOpts, _c, graphql, _d, contextValue, _e, contextFxn, _f, handle, _g, rejected, subscribe, execute, data, type, payload, _h, reqOpId, opId, query, graphqlMainOpts, graphqlOptions, _j, ctx, val, asyncIterable, _k, _l, _m, _o;
+                    var _p, _q;
+                    return __generator(this, function (_r) {
+                        switch (_r.label) {
                             case 0: return [4 /*yield*/, messageHandler(ws, message, isBinary)];
                             case 1:
-                                proceed = _q.sent();
+                                proceed = _r.sent();
                                 options = __assign({}, Options);
                                 if (typeof proceed !== 'boolean') {
                                     options = __assign(__assign({}, options), proceed);
@@ -261,7 +265,7 @@ function generateGraphqlWsHandler(settings) {
                                     if (!proceed)
                                         return [2 /*return*/];
                                 }
-                                _a = options.schema, schema = _a === void 0 ? null : _a, _b = options.options, graphqlOpts = _b === void 0 ? null : _b, _c = options.graphql, graphql = _c === void 0 ? null : _c, _d = options.contextValue, contextValue = _d === void 0 ? {} : _d, _e = options.contextFxn, contextFxn = _e === void 0 ? undefined : _e, _f = options.handle, handle = _f === void 0 ? true : _f;
+                                _a = options.schema, schema = _a === void 0 ? null : _a, _b = options.options, graphqlOpts = _b === void 0 ? null : _b, _c = options.graphql, graphql = _c === void 0 ? null : _c, _d = options.contextValue, contextValue = _d === void 0 ? {} : _d, _e = options.contextFxn, contextFxn = _e === void 0 ? undefined : _e, _f = options.handle, handle = _f === void 0 ? true : _f, _g = options.rejected, rejected = _g === void 0 ? function () { return null; } : _g;
                                 if (schema === null)
                                     throw new Error('INVALID_EXECUTABLE_SCHEMA');
                                 if (graphql === null)
@@ -271,20 +275,22 @@ function generateGraphqlWsHandler(settings) {
                                         ws: ws,
                                     })];
                             case 2:
-                                proceed = _q.sent();
+                                proceed = _r.sent();
                                 return [3 /*break*/, 4];
                             case 3:
                                 proceed = handle;
-                                _q.label = 4;
+                                _r.label = 4;
                             case 4:
-                                if (!proceed)
+                                if (!proceed) {
+                                    rejected('HANDLE');
                                     return [2 /*return*/];
+                                }
                                 subscribe = graphql.subscribe;
                                 execute = graphql.execute;
                                 data = JSON.parse(Buffer.from(message).toString('utf8'));
                                 if (!(data && lodash_1.has(data, 'type') && lodash_1.isString(data.type) && lodash_1.has(data, 'payload')))
                                     return [2 /*return*/];
-                                type = data.type, payload = data.payload, _g = data.id, reqOpId = _g === void 0 ? null : _g;
+                                type = data.type, payload = data.payload, _h = data.id, reqOpId = _h === void 0 ? null : _h;
                                 opId = connectedUsersCount;
                                 if (reqOpId) {
                                     opId = reqOpId;
@@ -298,19 +304,19 @@ function generateGraphqlWsHandler(settings) {
                                 if (!(lodash_1.isObject(payload) && lodash_1.isString(payload.query)))
                                     return [2 /*return*/];
                                 query = payload.query, graphqlMainOpts = __rest(payload, ["query"]);
-                                _o = {};
+                                _p = {};
                                 if (!(typeof schema === 'function')) return [3 /*break*/, 7];
                                 return [4 /*yield*/, schema({
                                         ws: ws,
                                     })];
                             case 6:
-                                _h = _q.sent();
+                                _j = _r.sent();
                                 return [3 /*break*/, 8];
                             case 7:
-                                _h = schema;
-                                _q.label = 8;
+                                _j = schema;
+                                _r.label = 8;
                             case 8:
-                                graphqlOptions = __assign.apply(void 0, [__assign.apply(void 0, [(_o.schema = _h, _o.document = graphql.parse(query), _o), graphqlOpts]), graphqlMainOpts]);
+                                graphqlOptions = __assign.apply(void 0, [__assign.apply(void 0, [(_p.schema = _j, _p.document = graphql.parse(query), _p), graphqlOpts]), graphqlMainOpts]);
                                 if (graphqlOpts) {
                                     graphqlOptions = __assign(__assign({}, graphqlOpts), graphqlOptions);
                                 }
@@ -323,17 +329,17 @@ function generateGraphqlWsHandler(settings) {
                                         ws: ws,
                                     })];
                             case 9:
-                                val = _q.sent();
+                                val = _r.sent();
                                 if (typeof val === 'object') {
                                     ctx = __assign(__assign({}, ctx), val);
                                 }
-                                _q.label = 10;
+                                _r.label = 10;
                             case 10:
                                 graphqlOptions.contextValue = ctx;
                                 if (!(type === 'start' || type === 'connection_init')) return [3 /*break*/, 12];
                                 return [4 /*yield*/, subscribe(graphqlOptions)];
                             case 11:
-                                asyncIterable = _q.sent();
+                                asyncIterable = _r.sent();
                                 asyncIterable = (iterall_1.isAsyncIterable(asyncIterable)
                                     ? asyncIterable
                                     : iterall_1.createAsyncIterator([asyncIterable]));
@@ -346,13 +352,13 @@ function generateGraphqlWsHandler(settings) {
                                 });
                                 return [3 /*break*/, 14];
                             case 12:
-                                _k = (_j = ws).send;
-                                _m = (_l = JSON).stringify;
-                                _p = {};
+                                _l = (_k = ws).send;
+                                _o = (_m = JSON).stringify;
+                                _q = {};
                                 return [4 /*yield*/, execute(graphqlOptions)];
                             case 13:
-                                _k.apply(_j, [_m.apply(_l, [(_p.payload = _q.sent(), _p.type = 'query', _p.id = opId, _p)])]);
-                                _q.label = 14;
+                                _l.apply(_k, [_o.apply(_m, [(_q.payload = _r.sent(), _q.type = 'query', _q.id = opId, _q)])]);
+                                _r.label = 14;
                             case 14: return [2 /*return*/];
                         }
                     });
