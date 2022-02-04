@@ -34,7 +34,7 @@ function sendFileToRes(res, reqHeaders, path, _a) {
     var _b = _a.lastModified, lastModified = _b === void 0 ? true : _b, _c = _a.headers, headers = _c === void 0 ? {} : _c, _d = _a.compress, compress = _d === void 0 ? false : _d, _e = _a.compressionOptions, compressionOptions = _e === void 0 ? {
         priority: ['gzip', 'br', 'deflate'],
     } : _e, _f = _a.cache, cache = _f === void 0 ? false : _f;
-    var statsData = fs_1.statSync(path);
+    var statsData = (0, fs_1.statSync)(path);
     var mtime = statsData.mtime;
     var size = statsData.size;
     mtime.setMilliseconds(0);
@@ -51,7 +51,7 @@ function sendFileToRes(res, reqHeaders, path, _a) {
         }
         headers['last-modified'] = mtimeutc;
     }
-    headers['content-type'] = mime_1.getMime(path);
+    headers['content-type'] = (0, mime_1.getMime)(path);
     // write data
     var start = 0, end = size - 1;
     if (reqHeaders.range) {
@@ -60,14 +60,14 @@ function sendFileToRes(res, reqHeaders, path, _a) {
         start = parseInt(parts[0], 10);
         end = parts[1] ? parseInt(parts[1], 10) : end;
         headers['accept-ranges'] = 'bytes';
-        headers['content-range'] = "bytes " + start + "-" + end + "/" + size;
+        headers['content-range'] = "bytes ".concat(start, "-").concat(end, "/").concat(size);
         size = end - start + 1;
         res.writeStatus('206 Partial Content');
     }
     // for size = 0
     if (end < 0)
         end = 0;
-    var readStream = fs_1.createReadStream(path, { start: start, end: end });
+    var readStream = (0, fs_1.createReadStream)(path, { start: start, end: end });
     // Compression;
     var compressed = false;
     if (compress &&
@@ -90,11 +90,11 @@ function sendFileToRes(res, reqHeaders, path, _a) {
         }
     }
     res.onAborted(function () { return readStream.destroy(); });
-    functions_1.writeHeaders(res, headers);
+    (0, functions_1.writeHeaders)(res, headers);
     // check cache
     if (cache) {
-        return cache.wrap(path + "_" + mtimeutc + "_" + start + "_" + end + "_" + compressed, function (cb) {
-            functions_2.stob(readStream)
+        return cache.wrap("".concat(path, "_").concat(mtimeutc, "_").concat(start, "_").concat(end, "_").concat(compressed), function (cb) {
+            (0, functions_2.stob)(readStream)
                 .then(function (b) { return cb(null, b); })
                 .catch(cb);
         }, { ttl: 0 }, function (err, buffer) {

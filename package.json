@@ -32,9 +32,9 @@
     "mkdirp": "^1.0.4",
     "parse-headers": "^2.0.3",
     "qs": "^6.9.6",
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v19.2.0"
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.6.0"
   },
   "peerDependencies": {
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v19.2.0"
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.6.0"
   }
 }

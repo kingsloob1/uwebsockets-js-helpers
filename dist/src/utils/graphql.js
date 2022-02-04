@@ -73,9 +73,9 @@ function getGraphqlParams(parsedData) {
                 variables = requestQuery.variables;
                 operationName = requestQuery.operationName;
                 if (lowerCaseMethod === 'post') {
-                    query = lodash_1.get(body, 'fields.query', query) || query;
-                    variables = lodash_1.get(body, 'fields.variables', variables) || variables;
-                    operationName = lodash_1.get(body, 'fields.operationName', operationName) || operationName;
+                    query = (0, lodash_1.get)(body, 'fields.query', query) || query;
+                    variables = (0, lodash_1.get)(body, 'fields.variables', variables) || variables;
+                    operationName = (0, lodash_1.get)(body, 'fields.operationName', operationName) || operationName;
                 }
             }
             return [2 /*return*/, {
@@ -113,7 +113,7 @@ function generateGraphqlHandler(res, req, settings) {
                 case 0:
                     res.onAborted(console.error);
                     graphqlSettings = settings.graphql, options = __rest(settings, ["graphql"]);
-                    return [4 /*yield*/, functions_1.parseData(req, res, __assign(__assign({}, options), {
+                    return [4 /*yield*/, (0, functions_1.parseData)(req, res, __assign(__assign({}, options), {
                             method: true,
                             body: true,
                             query: true,
@@ -150,14 +150,14 @@ function generateGraphqlHandler(res, req, settings) {
                         graphqlOptions = __assign(__assign({}, graphqlOpts), graphqlOptions);
                     }
                     ctx = {};
-                    if (typeof contextValue === 'object' && lodash_1.isObject(ctx)) {
+                    if (typeof contextValue === 'object' && (0, lodash_1.isObject)(ctx)) {
                         ctx = __assign(__assign({}, ctx), contextValue);
                     }
                     if (!(typeof contextFxn === 'function')) return [3 /*break*/, 9];
                     return [4 /*yield*/, contextFxn(parsedData)];
                 case 8:
                     val = _k.sent();
-                    if (typeof val === 'object' && lodash_1.isObject(val)) {
+                    if (typeof val === 'object' && (0, lodash_1.isObject)(val)) {
                         ctx = __assign(__assign({}, ctx), val);
                     }
                     _k.label = 9;
@@ -206,7 +206,7 @@ function generateGraphqlWsHandler(settings) {
                                 res.onAborted(function () {
                                     check.isAborted = true;
                                 });
-                                return [4 /*yield*/, functions_1.parseData(req, res, {
+                                return [4 /*yield*/, (0, functions_1.parseData)(req, res, {
                                         method: true,
                                         body: true,
                                         query: true,
@@ -234,26 +234,24 @@ function generateGraphqlWsHandler(settings) {
                                 }
                                 if (check.isAborted)
                                     return [2 /*return*/];
-                                data = __assign(__assign({}, parsedData), { req: req,
-                                    res: res,
-                                    context: context });
+                                data = __assign(__assign({}, parsedData), { req: req, res: res, context: context });
                                 return [4 /*yield*/, upgradeHandler(data)];
                             case 4:
                                 process = _a.sent();
                                 if (process && !check.isAborted) {
-                                    secWebsocketKey = lodash_1.get(parsedData.headers, 'sec-websocket-key');
-                                    if (lodash_1.isArray(secWebsocketKey))
+                                    secWebsocketKey = (0, lodash_1.get)(parsedData.headers, 'sec-websocket-key');
+                                    if ((0, lodash_1.isArray)(secWebsocketKey))
                                         secWebsocketKey = secWebsocketKey.join(';');
-                                    secWebsocketProtocol = lodash_1.get(parsedData.headers, 'sec-websocket-protocol');
-                                    if (lodash_1.isArray(secWebsocketProtocol))
+                                    secWebsocketProtocol = (0, lodash_1.get)(parsedData.headers, 'sec-websocket-protocol');
+                                    if ((0, lodash_1.isArray)(secWebsocketProtocol))
                                         secWebsocketProtocol = secWebsocketProtocol.join(';');
-                                    secWebsocketExtensions = lodash_1.get(parsedData.headers, 'sec-websocket-extensions');
-                                    if (lodash_1.isArray(secWebsocketExtensions))
+                                    secWebsocketExtensions = (0, lodash_1.get)(parsedData.headers, 'sec-websocket-extensions');
+                                    if ((0, lodash_1.isArray)(secWebsocketExtensions))
                                         secWebsocketExtensions = secWebsocketExtensions.join(';');
                                     ipAddress_1 = Buffer.from(res.getRemoteAddressAsText()).toString('utf8');
                                     map.set(ipAddress_1, parsedData);
                                     res.upgrade({
-                                        url: lodash_1.get(parsedData, 'path'),
+                                        url: (0, lodash_1.get)(parsedData, 'path'),
                                     }, secWebsocketKey, secWebsocketProtocol, secWebsocketExtensions, context);
                                     setImmediate(function () { return map.delete(ipAddress_1); });
                                 }
@@ -306,7 +304,7 @@ function generateGraphqlWsHandler(settings) {
                                 subscribe = graphql.subscribe;
                                 execute = graphql.execute;
                                 data = JSON.parse(Buffer.from(message).toString('utf8'));
-                                if (!(data && lodash_1.has(data, 'type') && lodash_1.isString(data.type) && lodash_1.has(data, 'payload')))
+                                if (!(data && (0, lodash_1.has)(data, 'type') && (0, lodash_1.isString)(data.type) && (0, lodash_1.has)(data, 'payload')))
                                     return [2 /*return*/];
                                 type = data.type, payload = data.payload, _h = data.id, reqOpId = _h === void 0 ? null : _h;
                                 opId = connectedUsersCount;
@@ -319,7 +317,7 @@ function generateGraphqlWsHandler(settings) {
                                     connectedUsersCount--;
                                 return [3 /*break*/, 14];
                             case 5:
-                                if (!(lodash_1.isObject(payload) && lodash_1.isString(payload.query)))
+                                if (!((0, lodash_1.isObject)(payload) && (0, lodash_1.isString)(payload.query)))
                                     return [2 /*return*/];
                                 query = payload.query, graphqlMainOpts = __rest(payload, ["query"]);
                                 _l = {};
@@ -358,8 +356,8 @@ function generateGraphqlWsHandler(settings) {
                                 return [4 /*yield*/, subscribe(graphqlOptions)];
                             case 11:
                                 asyncIterable = _m.sent();
-                                asyncIterable = (iterall_1.isAsyncIterable(asyncIterable) ? asyncIterable : iterall_1.createAsyncIterator([asyncIterable]));
-                                iterall_1.forAwaitEach(asyncIterable, function (result) {
+                                asyncIterable = ((0, iterall_1.isAsyncIterable)(asyncIterable) ? asyncIterable : (0, iterall_1.createAsyncIterator)([asyncIterable]));
+                                (0, iterall_1.forAwaitEach)(asyncIterable, function (result) {
                                     var res = prepareExecutionResult(result, formatError);
                                     ws.send(JSON.stringify({
                                         id: opId,

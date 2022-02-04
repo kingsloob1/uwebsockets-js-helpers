@@ -53,10 +53,14 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
-var __spreadArray = (this && this.__spreadArray) || function (to, from) {
-    for (var i = 0, il = from.length, j = to.length; i < il; i++, j++)
-        to[j] = from[i];
-    return to;
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
 };
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -64,7 +68,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseData = exports.stob = exports.writeHeaders = exports.ResDataToStream = void 0;
 var qs_1 = require("qs");
-var fs_1 = require("fs");
+var promises_1 = require("fs/promises");
 var path_1 = require("path");
 var busboy_1 = __importDefault(require("busboy"));
 var mkdirp_1 = __importDefault(require("mkdirp"));
@@ -76,7 +80,7 @@ function ResDataToStream(res) {
     for (var _i = 1; _i < arguments.length; _i++) {
         options[_i - 1] = arguments[_i];
     }
-    var stream = new (stream_1.Readable.bind.apply(stream_1.Readable, __spreadArray([void 0], options)))();
+    var stream = new (stream_1.Readable.bind.apply(stream_1.Readable, __spreadArray([void 0], options, false)))();
     stream._read = function () {
         res.onData(function (chunk, isLast) {
             stream.push(Buffer.from(chunk));
@@ -156,24 +160,24 @@ function parseData(req, res, options) {
                         headers_1 = {};
                         req.forEach(function (k, value) {
                             var key = k.toLowerCase();
-                            if (!lodash_1.has(headers_1, key)) {
-                                lodash_1.set(headers_1, key, value);
+                            if (!(0, lodash_1.has)(headers_1, key)) {
+                                (0, lodash_1.set)(headers_1, key, value);
                             }
                             else {
-                                var val = lodash_1.get(headers_1, key);
-                                if (lodash_1.isArray(val)) {
+                                var val = (0, lodash_1.get)(headers_1, key);
+                                if ((0, lodash_1.isArray)(val)) {
                                     val.push(value);
                                 }
                                 else {
                                     val = [val];
                                 }
-                                lodash_1.set(headers_1, key, val);
+                                (0, lodash_1.set)(headers_1, key, val);
                             }
                         });
                         out.headers = headers_1;
                     }
                     if (typeof options.query === 'boolean' && options.query === true) {
-                        out.query = qs_1.parse(req.getQuery(), {
+                        out.query = (0, qs_1.parse)(req.getQuery(), {
                             parseArrays: false,
                         });
                     }
@@ -184,8 +188,8 @@ function parseData(req, res, options) {
                         out.path = req.getUrl();
                     }
                     if (!(typeof options.body === 'boolean' && options.body === true)) return [3 /*break*/, 7];
-                    opts_1 = lodash_1.isObject(options.bodyOptions) ? options.bodyOptions : {};
-                    opts_1 = lodash_1.merge({
+                    opts_1 = (0, lodash_1.isObject)(options.bodyOptions) ? options.bodyOptions : {};
+                    opts_1 = (0, lodash_1.merge)({
                         headers: __assign({ 'content-type': 'application/x-www-form-urlencoded' }, out.headers),
                         highWaterMark: 1024,
                         fileHwm: 1024,
@@ -203,14 +207,14 @@ function parseData(req, res, options) {
                 case 1:
                     _b.trys.push([1, 6, , 7]);
                     stream_2 = ResDataToStream(res);
-                    contentType = lodash_1.get(out, 'headers.content-type', 'application/x-www-form-urlencoded').trim();
+                    contentType = (0, lodash_1.get)(out, 'headers.content-type', 'application/x-www-form-urlencoded').trim();
                     if (!('application/x-www-form-urlencoded' === contentType || contentType.startsWith('multipart/form-data;'))) return [3 /*break*/, 3];
                     fetchBody = function () {
                         return new Promise(function (resolve, reject) {
                             var busb = new busboy_1.default(opts_1);
                             var ret = {};
                             stream_2.pipe(busb);
-                            stream_1.finished(stream_2, function (err) {
+                            (0, stream_1.finished)(stream_2, function (err) {
                                 if (err) {
                                     stream_2.destroy();
                                     busb.end();
@@ -224,11 +228,11 @@ function parseData(req, res, options) {
                                 var file_1, file_1_1;
                                 var e_2, _a;
                                 return __awaiter(this, void 0, void 0, function () {
-                                    var tmpDir, folder, handle, fileData, hasWritten, path, exists, stats, fd, chunk, e_2_1, _b;
-                                    return __generator(this, function (_c) {
-                                        switch (_c.label) {
+                                    var tmpDir, folder, handle, fileData, hasWritten, path, exists, stats, _b, fd, chunk, e_2_1, _c;
+                                    return __generator(this, function (_d) {
+                                        switch (_d.label) {
                                             case 0:
-                                                tmpDir = os_1.tmpdir();
+                                                tmpDir = (0, os_1.tmpdir)();
                                                 folder = '';
                                                 handle = true;
                                                 if (!options.customBodyOptions) return [3 /*break*/, 12];
@@ -243,106 +247,118 @@ function parseData(req, res, options) {
                                                 if (!(typeof options.customBodyOptions.tmpDir === 'function')) return [3 /*break*/, 2];
                                                 return [4 /*yield*/, options.customBodyOptions.tmpDir(fileData)];
                                             case 1:
-                                                tmpDir = _c.sent();
+                                                tmpDir = _d.sent();
                                                 return [3 /*break*/, 3];
                                             case 2:
                                                 tmpDir = options.customBodyOptions.tmpDir;
-                                                _c.label = 3;
+                                                _d.label = 3;
                                             case 3:
                                                 if (!options.customBodyOptions.folder) return [3 /*break*/, 6];
                                                 if (!(typeof options.customBodyOptions.folder === 'function')) return [3 /*break*/, 5];
                                                 return [4 /*yield*/, options.customBodyOptions.folder(fileData)];
                                             case 4:
-                                                folder = _c.sent();
+                                                folder = _d.sent();
                                                 return [3 /*break*/, 6];
                                             case 5:
                                                 folder = options.customBodyOptions.folder;
-                                                _c.label = 6;
+                                                _d.label = 6;
                                             case 6:
                                                 if (!options.customBodyOptions.handle) return [3 /*break*/, 9];
                                                 if (!(typeof options.customBodyOptions.handle === 'function')) return [3 /*break*/, 8];
                                                 return [4 /*yield*/, options.customBodyOptions.handle(fileData)];
                                             case 7:
-                                                handle = _c.sent();
+                                                handle = _d.sent();
                                                 return [3 /*break*/, 9];
                                             case 8:
                                                 handle = options.customBodyOptions.handle;
-                                                _c.label = 9;
+                                                _d.label = 9;
                                             case 9:
                                                 if (!options.customBodyOptions.saveAs) return [3 /*break*/, 12];
                                                 if (!(typeof options.customBodyOptions.saveAs === 'function')) return [3 /*break*/, 11];
                                                 return [4 /*yield*/, options.customBodyOptions.saveAs(fileData)];
                                             case 10:
-                                                filename = _c.sent();
+                                                filename = _d.sent();
                                                 return [3 /*break*/, 12];
                                             case 11:
                                                 filename = options.customBodyOptions.saveAs;
-                                                _c.label = 12;
+                                                _d.label = 12;
                                             case 12:
                                                 hasWritten = false;
-                                                if (!handle) return [3 /*break*/, 28];
+                                                if (!handle) return [3 /*break*/, 35];
                                                 if (options.namespace) {
                                                     if (folder)
-                                                        folder = options.namespace + "/" + folder;
+                                                        folder = (0, path_1.join)(options.namespace, folder);
                                                     else
                                                         folder = options.namespace;
                                                 }
                                                 path = '';
                                                 exists = false;
-                                                try {
-                                                    path = path_1.join(tmpDir, folder, filename);
-                                                    stats = fs_1.lstatSync(path);
-                                                    exists = stats.isFile() || stats.isDirectory();
-                                                }
-                                                catch (_d) { }
-                                                _c.label = 13;
+                                                _d.label = 13;
                                             case 13:
-                                                _c.trys.push([13, 27, , 28]);
-                                                if (!!exists) return [3 /*break*/, 26];
-                                                mkdirp_1.default.sync(path_1.dirname(path));
-                                                fd = fs_1.openSync(path, 'w');
-                                                _c.label = 14;
+                                                _d.trys.push([13, 15, , 16]);
+                                                path = (0, path_1.join)(tmpDir, folder, filename);
+                                                return [4 /*yield*/, (0, promises_1.lstat)(path)];
                                             case 14:
-                                                _c.trys.push([14, 19, 20, 25]);
-                                                file_1 = __asyncValues(file);
-                                                _c.label = 15;
-                                            case 15: return [4 /*yield*/, file_1.next()];
+                                                stats = _d.sent();
+                                                exists = stats.isFile() || stats.isDirectory();
+                                                return [3 /*break*/, 16];
+                                            case 15:
+                                                _b = _d.sent();
+                                                return [3 /*break*/, 16];
                                             case 16:
-                                                if (!(file_1_1 = _c.sent(), !file_1_1.done)) return [3 /*break*/, 18];
-                                                chunk = file_1_1.value;
-                                                fs_1.writeSync(fd, Buffer.from(chunk));
-                                                _c.label = 17;
-                                            case 17: return [3 /*break*/, 15];
-                                            case 18: return [3 /*break*/, 25];
+                                                _d.trys.push([16, 34, , 35]);
+                                                if (!!exists) return [3 /*break*/, 33];
+                                                return [4 /*yield*/, (0, mkdirp_1.default)((0, path_1.dirname)(path))];
+                                            case 17:
+                                                _d.sent();
+                                                return [4 /*yield*/, (0, promises_1.open)(path, 'w')];
+                                            case 18:
+                                                fd = _d.sent();
+                                                _d.label = 19;
                                             case 19:
-                                                e_2_1 = _c.sent();
-                                                e_2 = { error: e_2_1 };
-                                                return [3 /*break*/, 25];
-                                            case 20:
-                                                _c.trys.push([20, , 23, 24]);
-                                                if (!(file_1_1 && !file_1_1.done && (_a = file_1.return))) return [3 /*break*/, 22];
-                                                return [4 /*yield*/, _a.call(file_1)];
+                                                _d.trys.push([19, 25, 26, 31]);
+                                                file_1 = __asyncValues(file);
+                                                _d.label = 20;
+                                            case 20: return [4 /*yield*/, file_1.next()];
                                             case 21:
-                                                _c.sent();
-                                                _c.label = 22;
-                                            case 22: return [3 /*break*/, 24];
-                                            case 23:
+                                                if (!(file_1_1 = _d.sent(), !file_1_1.done)) return [3 /*break*/, 24];
+                                                chunk = file_1_1.value;
+                                                return [4 /*yield*/, (0, promises_1.write)(fd, Buffer.from(chunk))];
+                                            case 22:
+                                                _d.sent();
+                                                _d.label = 23;
+                                            case 23: return [3 /*break*/, 20];
+                                            case 24: return [3 /*break*/, 31];
+                                            case 25:
+                                                e_2_1 = _d.sent();
+                                                e_2 = { error: e_2_1 };
+                                                return [3 /*break*/, 31];
+                                            case 26:
+                                                _d.trys.push([26, , 29, 30]);
+                                                if (!(file_1_1 && !file_1_1.done && (_a = file_1.return))) return [3 /*break*/, 28];
+                                                return [4 /*yield*/, _a.call(file_1)];
+                                            case 27:
+                                                _d.sent();
+                                                _d.label = 28;
+                                            case 28: return [3 /*break*/, 30];
+                                            case 29:
                                                 if (e_2) throw e_2.error;
                                                 return [7 /*endfinally*/];
-                                            case 24: return [7 /*endfinally*/];
-                                            case 25:
-                                                fs_1.closeSync(fd);
+                                            case 30: return [7 /*endfinally*/];
+                                            case 31: return [4 /*yield*/, fd.close()];
+                                            case 32:
+                                                _d.sent();
                                                 hasWritten = true;
-                                                lodash_1.set(ret, "files." + fieldname, {
+                                                (0, lodash_1.set)(ret, "files.".concat(fieldname), {
                                                     file: path,
                                                     mimetype: mimetype,
                                                 });
-                                                _c.label = 26;
-                                            case 26: return [3 /*break*/, 28];
-                                            case 27:
-                                                _b = _c.sent();
-                                                return [3 /*break*/, 28];
-                                            case 28:
+                                                _d.label = 33;
+                                            case 33: return [3 /*break*/, 35];
+                                            case 34:
+                                                _c = _d.sent();
+                                                return [3 /*break*/, 35];
+                                            case 35:
                                                 if (!hasWritten) {
                                                     file.resume();
                                                 }
@@ -352,7 +368,7 @@ function parseData(req, res, options) {
                                 });
                             });
                             busb.on('field', function (fieldname, value) {
-                                lodash_1.set(ret, "fields." + fieldname, value);
+                                (0, lodash_1.set)(ret, "fields.".concat(fieldname), value);
                             });
                             busb.on('finish', function () {
                                 resolve(ret);
@@ -378,7 +394,7 @@ function parseData(req, res, options) {
                     return [3 /*break*/, 5];
                 case 3:
                     if (!(contentType === 'application/json')) return [3 /*break*/, 5];
-                    return [4 /*yield*/, stob(stream_2, parseFloat(lodash_1.get(opts_1, 'limits.fieldSize', 0)) || 0)];
+                    return [4 /*yield*/, stob(stream_2, parseFloat((0, lodash_1.get)(opts_1, 'limits.fieldSize', 0)) || 0)];
                 case 4:
                     data = _b.sent();
                     data = data.toString('utf8');

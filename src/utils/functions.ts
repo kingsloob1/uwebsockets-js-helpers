@@ -1,6 +1,6 @@
 import { HttpRequest, HttpResponse } from 'uWebSockets.js';
 import { parse as parseQuery } from 'qs';
-import { lstatSync, openSync, writeSync, closeSync } from 'fs';
+import { lstat, open, write } from 'fs/promises';
 import { join, dirname } from 'path';
 import Busboy from 'busboy';
 import mkdirp from 'mkdirp';
@@ -251,7 +251,7 @@ export async function parseData(req: HttpRequest, res: HttpResponse, options: Pa
               let hasWritten = false;
               if (handle) {
                 if (options.namespace) {
-                  if (folder) folder = `${options.namespace}/${folder}`;
+                  if (folder) folder = join(options.namespace, folder);
                   else folder = options.namespace;
                 }
 
@@ -259,20 +259,20 @@ export async function parseData(req: HttpRequest, res: HttpResponse, options: Pa
                 let exists = false;
                 try {
                   path = join(tmpDir, folder, filename);
-                  const stats = lstatSync(path);
+                  const stats = await lstat(path);
                   exists = stats.isFile() || stats.isDirectory();
                 } catch {}
 
                 try {
                   if (!exists) {
-                    mkdirp.sync(dirname(path));
-                    const fd = openSync(path, 'w');
+                    await mkdirp(dirname(path));
+                    const fd = await open(path, 'w');
 
                     for await (const chunk of file) {
-                      writeSync(fd, Buffer.from(chunk));
+                      await write(fd, Buffer.from(chunk));
                     }
 
-                    closeSync(fd);
+                    await fd.close();
                     hasWritten = true;
                     set(ret, `files.${fieldname}`, {
                       file: path,
