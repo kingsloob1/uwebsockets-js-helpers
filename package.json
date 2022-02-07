@@ -32,9 +32,6 @@
     "mkdirp": "^1.0.4",
     "parse-headers": "^2.0.3",
     "qs": "^6.9.6",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#semver:>=18.2.0 <=20.6.0"
-  },
-  "peerDependencies": {
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#semver:>=18.2.0 <=20.6.0"
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#semver:^20.6.0"
   }
 }
