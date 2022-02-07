@@ -113,7 +113,7 @@ function sendFileToRes(
         compressed = type;
         const compressor = compressions[type](options);
         readStream.pipe(compressor);
-        readStream = (compressor as unknown) as ReadStream;
+        readStream = compressor as unknown as ReadStream;
         headers['content-encoding'] = priority[i];
         break;
       }
